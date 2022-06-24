@@ -1,7 +1,7 @@
 const { Server } = require("socket.io");
 const express = require("express");
 const path = require("path");
-const IOSStuff = require("./ios");
+const MobileDevice = require("./MobileDevice");
 
 
 
@@ -19,8 +19,8 @@ let clientObj = null;
 io.on("connection", (client) => {
   clientObj = client;
   console.log("Client is here");
-  // change device id
-  const iosStuff = new IOSStuff('17211JEC202889', client);
+  // change device id later using frontend
+  const iosStuff = new MobileDevice('00008110-001115920129801E', client);
   iosStuff.start();
 
   client.on("click", async (data) => {
