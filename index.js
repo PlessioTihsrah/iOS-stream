@@ -20,7 +20,7 @@ io.on("connection", (client) => {
   clientObj = client;
   console.log("Client is here");
   // change device id later using frontend
-  const iosStuff = new MobileDevice('00008110-001115920129801E', client);
+  const iosStuff = new MobileDevice('00008110-001115920129801E', client, 'ios');
   iosStuff.start();
 
   client.on("click", async (data) => {

@@ -1,5 +1,6 @@
 const { exec } = require("child_process");
 const fs = require("fs");
+const axios = require("axios").default;
 
 class MobileDevice {
   deviceId;
@@ -15,19 +16,14 @@ class MobileDevice {
     this.deviceType = deviceType;
   }
 
-  clickCommand(x, y) {
-    if (this.deviceType === "android") {
-      return `adb -s ${this.deviceId} shell input tap ${x} ${y}`;
-    } else {
-      // to be implemented using wda
-      console.log({ x, y });
-    }
-  }
   click(x, y) {
-    const command = this.clickCommand(x, y);
-    if (!command) {
-      return;
+    console.log("Clicking at ", { x, y });
+    if (this.deviceType === "ios") {
+      const wdaPort = 8401;
+      return axios.post(`http://localhost:${wdaPort}/bs/tap`, { x, y });
     }
+
+    const command = `adb -s ${this.deviceId} shell input tap ${x} ${y}`;
     return new Promise((resolve, reject) => {
       exec(command, (error, stdout, stderr) => {
         if (error) {
@@ -60,33 +56,29 @@ class MobileDevice {
     this.running = false;
   }
 
-  screenshotCommand (outputFile) {
+  screenshotCommand(outputFile) {
     if (this.deviceType === "android") {
-      return `adb -s ${this.deviceId} shell screencap -p > ${outputFile}`
+      return `adb -s ${this.deviceId} shell screencap -p > ${outputFile}`;
     } else {
-      return `idevicescreenshot -u ${this.deviceId} ${outputFile}`
+      return `idevicescreenshot -u ${this.deviceId} ${outputFile}`;
     }
   }
   takeScreenshot() {
-    
     return new Promise((resolve, reject) => {
       const output = `/tmp/screen-${this.deviceId}.png`;
-      const command  = this.screenshotCommand(output);
-      exec(
-        command,
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(error.message);
-            return;
-          }
-          if (stderr) {
-            reject(stderr);
-            return;
-          }
-          const base64 = this.base64_encode(output);
-          resolve(base64);
+      const command = this.screenshotCommand(output);
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          reject(error.message);
+          return;
         }
-      );
+        if (stderr) {
+          reject(stderr);
+          return;
+        }
+        const base64 = this.base64_encode(output);
+        resolve(base64);
+      });
     });
   }
 
