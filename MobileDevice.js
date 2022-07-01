@@ -1,6 +1,7 @@
-const { exec } = require("child_process");
 const fs = require("fs");
 const axios = require("axios").default;
+const util = require("util");
+const exec = util.promisify(require("child_process").exec);
 
 class MobileDevice {
   deviceId;
@@ -9,14 +10,60 @@ class MobileDevice {
   driver;
   deviceType;
 
-  constructor(deviceId, socket, deviceType) {
-    this.deviceId = deviceId;
+  constructor(socket) {
     this.running = false;
     this.client = socket;
-    this.deviceType = deviceType;
+  }
+  getAvailableDevicesAndroid() {
+    return new Promise((resolve) => {
+      exec("adb devices")
+        .then(({ stdout, stderr }) => {
+          if (stderr) {
+            throw stderr;
+          }
+          const devices = stdout
+            .trim()
+            .split("\n")
+            .slice(1)
+            .map((device) => device.split("\t")[0]);
+          resolve(devices);
+        })
+        .catch(() => resolve([]));
+    });
+  }
+
+  getAvailableDevicesIos() {
+    return new Promise((resolve) => {
+      exec("idevice_id")
+        .then(({ stdout, stderr }) => {
+          if (stderr || !stdout.trim()) {
+            resolve([]);
+          }
+          resolve(
+            stdout
+              .trim()
+              .split("\n")
+              .map((device) => device.split(" ")[0])
+          );
+        })
+        .catch(() => resolve([]));
+    });
+  }
+  getAvailableDevices() {
+    return new Promise(async (resolve) => {
+      const androidDevices = await this.getAvailableDevicesAndroid();
+      const iosDevices = await this.getAvailableDevicesIos();
+      resolve({
+        android: androidDevices,
+        ios: iosDevices,
+      });
+    });
   }
 
   click(x, y) {
+    if (!this.running) {
+      return;
+    }
     console.log("Clicking at ", { x, y });
     if (this.deviceType === "ios") {
       const wdaPort = 8401;
@@ -25,28 +72,29 @@ class MobileDevice {
 
     const command = `adb -s ${this.deviceId} shell input tap ${x} ${y}`;
     return new Promise((resolve, reject) => {
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          reject(error.message);
-          return;
-        }
-        if (stderr) {
-          reject(stderr);
-          return;
-        }
-        resolve();
-      });
+      exec(command)
+        .then(({ stdout, stderr }) => {
+          if (stderr) {
+            throw stderr;
+          }
+
+          resolve(stdout);
+        })
+        .catch((e) => {
+          reject(e);
+        });
     });
   }
 
-  async start() {
+  async start(deviceId, deviceType) {
+    this.deviceId = deviceId;
+    this.deviceType = deviceType;
     this.running = true;
     while (this.running) {
       const time = new Date().getTime();
       const screenshot = await this.takeScreenshot();
       const timeTaken = new Date().getTime() - time;
-      console.log("Sending screenshot, took " + timeTaken + " ms");
-      this.client.emit("screenshot", screenshot);
+      this.client.emit("screenshot", { screenshot, timeTaken });
     }
     console.log("Stopping screenshotter done");
   }
@@ -67,11 +115,7 @@ class MobileDevice {
     return new Promise((resolve, reject) => {
       const output = `/tmp/screen-${this.deviceId}.png`;
       const command = this.screenshotCommand(output);
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          reject(error.message);
-          return;
-        }
+      exec(command).then(({ stderr, stdout }) => {
         if (stderr) {
           reject(stderr);
           return;

@@ -3,33 +3,33 @@ const express = require("express");
 const path = require("path");
 const MobileDevice = require("./MobileDevice");
 
-
-
 const app = express();
 const port = 8079;
 const server = app.listen(port, () => console.log(`Running on port ${port}`));
 const io = new Server(server);
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-let clientObj = null;
+app.use(express.static("public"));
 
 io.on("connection", (client) => {
-  clientObj = client;
-  console.log("Client is here");
-  // change device id later using frontend
-  const iosStuff = new MobileDevice('00008110-001115920129801E', client, 'ios');
-  iosStuff.start();
+  let mobileDevice = new MobileDevice(client);
 
+  client.on("start", ({ deviceId, os }) => {
+    mobileDevice.start(deviceId, os);
+  });
   client.on("click", async (data) => {
-    const {x, y} = data;
-    await iosStuff.click(x,y);
-    
+    const { x, y } = data;
+    await mobileDevice.click(x, y);
   });
   client.on("disconnect", () => {
-    console.log("Disconnect");
-    iosStuff.stop();
+    mobileDevice.stop();
+    mobileDevice = null;
+  });
+
+  client.on("stop", () => {
+    mobileDevice.stop();
+  });
+
+  client.on("getDevices", async () => {
+    const devices = await mobileDevice.getAvailableDevices();
+    client.emit("devices", devices);
   });
 });
