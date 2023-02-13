@@ -44,11 +44,7 @@ class MobileDevice {
   }
 
   screenshotCommand(outputFile, deviceId) {
-    if (true) {
-      return `adb -s ${deviceId} shell screencap -p > ${outputFile}`;
-    } else {
-      return `idevicescreenshot -u ${deviceId} ${outputFile}`;
-    }
+    return `idevicescreenshot -u ${deviceId} ${outputFile}`;
   }
   takeScreenshot(deviceId) {
     return new Promise((resolve, reject) => {
