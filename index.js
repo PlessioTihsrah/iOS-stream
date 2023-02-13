@@ -12,20 +12,15 @@ app.use(express.static("public"));
 io.on("connection", (client) => {
   let mobileDevice = new MobileDevice(client);
 
-  client.on("start", ({ deviceId, os }) => {
-    mobileDevice.start(deviceId, os);
+  client.on("requestScreenshot", (deviceId) => {
+    mobileDevice.requestScreenshot(deviceId);
   });
   client.on("click", async (data) => {
     const { x, y } = data;
     await mobileDevice.click(x, y);
   });
   client.on("disconnect", () => {
-    mobileDevice.stop();
     mobileDevice = null;
-  });
-
-  client.on("stop", () => {
-    mobileDevice.stop();
   });
 
   client.on("getDevices", async () => {
